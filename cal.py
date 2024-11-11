@@ -34,10 +34,6 @@ class FisheyeUndistortApp:
         self.roll = self.default_roll
         self.pitch = self.default_pitch
         self.yaw = self.default_yaw
-        self.tx = self.default_tx
-        self.ty = self.default_ty
-        self.tz = self.default_tz
-
         self.create_widgets()
         self.load_default_image()
 
@@ -79,18 +75,6 @@ class FisheyeUndistortApp:
         self.yaw_scale.set(self.yaw)
         self.yaw_scale.grid(row=2, column=2)
 
-        self.tx_scale = Scale(self.root, from_=-100, to=100, orient=HORIZONTAL, label="Tx (translation)", command=self.update_tx)
-        self.tx_scale.set(self.tx)
-        self.tx_scale.grid(row=2, column=3)
-
-        self.ty_scale = Scale(self.root, from_=-100, to=100, orient=HORIZONTAL, label="Ty (translation)", command=self.update_ty)
-        self.ty_scale.set(self.ty)
-        self.ty_scale.grid(row=3, column=0)
-
-        self.tz_scale = Scale(self.root, from_=-100, to=100, orient=HORIZONTAL, label="Tz (translation)", command=self.update_tz)
-        self.tz_scale.set(self.tz)
-        self.tz_scale.grid(row=3, column=1)
-
         # Load image button
         Button(self.root, text="Load Image", command=self.load_image).grid(row=4, column=0, columnspan=2)
 
@@ -99,7 +83,7 @@ class FisheyeUndistortApp:
 
     def load_default_image(self):
         # Load "Fisheye.jpg" as the default image
-        self.image_path = "calibration_images/Fisheye.jpg"  # Ensure this file exists in the working directory
+        self.image_path = "./calibration_images/Fisheye.jpg"  # Ensure this file exists in the working directory
         self.load_image()
         self.display_original_undistortion()
 
@@ -148,18 +132,6 @@ class FisheyeUndistortApp:
         self.yaw = float(value)
         self.undistort_image()
 
-    def update_tx(self, value):
-        self.tx = float(value)
-        self.undistort_image()
-
-    def update_ty(self, value):
-        self.ty = float(value)
-        self.undistort_image()
-
-    def update_tz(self, value):
-        self.tz = float(value)
-        self.undistort_image()
-
     def set_defaults(self):
         # Revert to default intrinsic and extrinsic parameters
         self.fx = self.default_fx
@@ -169,9 +141,7 @@ class FisheyeUndistortApp:
         self.roll = self.default_roll
         self.pitch = self.default_pitch
         self.yaw = self.default_yaw
-        self.tx = self.default_tx
-        self.ty = self.default_ty
-        self.tz = self.default_tz
+
 
         # Update sliders
         self.fx_scale.set(self.default_fx)
@@ -181,9 +151,6 @@ class FisheyeUndistortApp:
         self.roll_scale.set(self.default_roll)
         self.pitch_scale.set(self.default_pitch)
         self.yaw_scale.set(self.default_yaw)
-        self.tx_scale.set(self.default_tx)
-        self.ty_scale.set(self.default_ty)
-        self.tz_scale.set(self.default_tz)
 
         # Update the image
         self.undistort_image()
@@ -199,17 +166,11 @@ class FisheyeUndistortApp:
         # Assume a fixed distortion coefficient for demonstration
         D = np.array([-0.2, 0.1, 0, 0], dtype=np.float64)
 
-        # Compute the rotation matrix from roll, pitch, yaw
-        rotation = R.from_euler('xyz', [self.roll, self.pitch, self.yaw], degrees=True)
+        # Compute the rotation matrix from roll, pitch, yaw (ensure correct axis order)
+        rotation = R.from_euler('xyz', [self.pitch, self.yaw, self.roll], degrees=True)
         R_mat = rotation.as_matrix()
 
-        # Apply translation
-        T = np.array([self.tx, self.ty, self.tz], dtype=np.float64).reshape(3, 1)
-
-        # Create extrinsic matrix (3x4 matrix combining R and T)
-        extrinsic_matrix = np.hstack((R_mat, T))
-
-        # Undistort image using the combined intrinsic and extrinsic transformation
+        # Use rotation matrix in the rectification step
         map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, R_mat, K, (w, h), cv2.CV_16SC2)
         undistorted_img = cv2.remap(self.img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
 
