@@ -25,7 +25,7 @@ typedef struct {
     int Size;
 } Corner2;
 
-// 행렬-벡터 곱셈 (다시 추가됨)
+// ✅ 행렬-벡터 곱셈
 void multiply_matrix_vector(double A[MATRIX_SIZE][MATRIX_SIZE], double b[MATRIX_SIZE], double k[MATRIX_SIZE]) {
     for (int i = 0; i < MATRIX_SIZE; i++) {
         k[i] = 0;
@@ -35,14 +35,14 @@ void multiply_matrix_vector(double A[MATRIX_SIZE][MATRIX_SIZE], double b[MATRIX_
     }
 }
 
-// 행렬 전치
+// ✅ 행렬 전치
 void transpose_matrix(double A[PATCH_SIZE][MATRIX_SIZE], double At[MATRIX_SIZE][PATCH_SIZE]) {
     for (int i = 0; i < PATCH_SIZE; i++)
         for (int j = 0; j < MATRIX_SIZE; j++)
             At[j][i] = A[i][j];
 }
 
-// 행렬 곱셈
+// ✅ 행렬 곱셈
 void multiply_matrices(double A[MATRIX_SIZE][PATCH_SIZE], double B[PATCH_SIZE][MATRIX_SIZE], double C[MATRIX_SIZE][MATRIX_SIZE]) {
     for (int i = 0; i < MATRIX_SIZE; i++) {
         for (int j = 0; j < MATRIX_SIZE; j++) {
@@ -54,10 +54,10 @@ void multiply_matrices(double A[MATRIX_SIZE][PATCH_SIZE], double B[PATCH_SIZE][M
     }
 }
 
-// 6x6 행렬 역행렬 (가우스-조던 소거법)
+// ✅ 6x6 행렬 역행렬 (가우스-조던 소거법)
 void inverse_matrix_6x6(double A[MATRIX_SIZE][MATRIX_SIZE], double A_inv[MATRIX_SIZE][MATRIX_SIZE]) {
     double temp[MATRIX_SIZE][MATRIX_SIZE * 2];
-    
+
     for (int i = 0; i < MATRIX_SIZE; i++) {
         for (int j = 0; j < MATRIX_SIZE; j++) {
             temp[i][j] = A[i][j];
@@ -90,7 +90,8 @@ void inverse_matrix_6x6(double A[MATRIX_SIZE][MATRIX_SIZE], double A_inv[MATRIX_
         }
     }
 }
-// 이미지 패치 추출 (bilinear interpolation)
+
+// ✅ 이미지 패치 추출 (bilinear interpolation)
 void get_image_patch_with_mask(
     double img[HEIGHT][WIDTH], double mask[KERNEL_SIZE][KERNEL_SIZE], 
     double u, double v, int r, double img_sub[PATCH_SIZE], int *num_valid
@@ -120,9 +121,59 @@ void get_image_patch_with_mask(
     }
 }
 
-// Saddle Point 검출
+// ✅ create_cone_filter_kernel() 추가
+int create_cone_filter_kernel(double kernel[KERNEL_SIZE][KERNEL_SIZE]) {
+    double sum = 0.0;
+    int nzs = 0;
+
+    for (int i = -R; i <= R; i++) {
+        for (int j = -R; j <= R; j++) {
+            kernel[i + R][j + R] = fmax(0.0, R + 1 - sqrt(i * i + j * j));
+            sum += kernel[i + R][j + R];
+            if (kernel[i + R][j + R] < 1e-6) {
+                nzs++;
+            }
+        }
+    }
+
+    for (int i = 0; i < KERNEL_SIZE; i++) {
+        for (int j = 0; j < KERNEL_SIZE; j++) {
+            kernel[i][j] /= sum;
+        }
+    }
+
+    return nzs;
+}
+
+
+
+
+// ✅ Saddle Point 검출 (polynomial_fit_saddle)
 void polynomial_fit_saddle(double img[HEIGHT][WIDTH], Corner2* corners) {
-    double A[PATCH_SIZE][MATRIX_SIZE];
+    double blur_kernel[KERNEL_SIZE][KERNEL_SIZE];
+    double mask[KERNEL_SIZE][KERNEL_SIZE];
+    double blur_img[HEIGHT][WIDTH] = {0}; 
+
+    create_cone_filter_kernel(blur_kernel);
+    int nzs = create_cone_filter_kernel(mask);
+    apply_convolution(img, blur_kernel, blur_img);
+
+    double A[PATCH_SIZE][MATRIX_SIZE] = {0};
+    int A_row = 0;
+    for (int j = -R; j <= R; j++) {
+        for (int i = -R; i <= R; i++) {
+            if (mask[j + R][i + R] >= 1e-6) {
+                A[A_row][0] = i * i;
+                A[A_row][1] = j * j;
+                A[A_row][2] = i * j;
+                A[A_row][3] = i;
+                A[A_row][4] = j;
+                A[A_row][5] = 1;
+                A_row++;
+            }
+        }
+    }
+
     double At[MATRIX_SIZE][PATCH_SIZE];
     double AtA[MATRIX_SIZE][MATRIX_SIZE];
     double AtA_inv[MATRIX_SIZE][MATRIX_SIZE];
@@ -147,7 +198,7 @@ void polynomial_fit_saddle(double img[HEIGHT][WIDTH], Corner2* corners) {
         get_image_patch_with_mask(img, mask, u_cur, v_cur, R, b, &num_valid);
 
         double k[MATRIX_SIZE];
-        multiply_matrix_vector(invAtAAt, b, k); // 🛠 다시 추가됨!
+        multiply_matrix_vector(invAtAAt, b, k);
 
         double det = 4 * k[0] * k[1] - k[2] * k[2];
         if (det > 0) {
@@ -174,6 +225,8 @@ void polynomial_fit_saddle(double img[HEIGHT][WIDTH], Corner2* corners) {
 
     *corners = corners_out;
 }
+
+// 🛠 기존 212줄 코드 유지!
 
 int main() {
     double img[HEIGHT][WIDTH] = {0};
